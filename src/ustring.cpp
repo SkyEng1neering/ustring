@@ -187,7 +187,7 @@ bool ustring::resize(uint32_t new_str_size, char value){
 ustring ustring::operator + (ustring &str){
 	uint32_t self_str_len = this->size();
 	uint32_t new_str_len = str.size();
-	ustring new_string(self_str_len + new_str_len, this->alloc_mem_ptr);
+    ustring new_string(self_str_len + new_str_len, this->ch_container.get_mem_pointer());
 	new_string.clear();
 
 	for(uint32_t i = 0; i < self_str_len; i++){
@@ -203,7 +203,7 @@ ustring ustring::operator + (const char *str){
 	uint32_t self_str_len = this->size();
 	uint32_t new_str_len = strlen(str);
 
-	ustring new_string(self_str_len + new_str_len, this->alloc_mem_ptr);
+    ustring new_string(self_str_len + new_str_len, this->ch_container.get_mem_pointer());
 	new_string.clear();
 
 	for(uint32_t i = 0; i < self_str_len; i++){
@@ -251,43 +251,36 @@ bool ustring::assign(ustring str){
 }
 
 heap_t* ustring::get_mem_pointer() const{
-	return this->alloc_mem_ptr;
+    return ch_container.get_mem_pointer();
 }
 
 void ustring::assign_mem_pointer(heap_t *mem_ptr){
-	this->alloc_mem_ptr = mem_ptr;
-	ch_container.assign_mem_pointer(alloc_mem_ptr);
+    ch_container.assign_mem_pointer(mem_ptr);
 }
 
 ustring::ustring(uint32_t _size, heap_t *_alloc_mem_ptr){
-	this->alloc_mem_ptr = _alloc_mem_ptr;
-	ch_container.assign_mem_pointer(alloc_mem_ptr);
+    ch_container.assign_mem_pointer(_alloc_mem_ptr);
 	resize(_size);
 }
 
 ustring::ustring(heap_t *_alloc_mem_ptr){
-	this->alloc_mem_ptr = _alloc_mem_ptr;
-	ch_container.assign_mem_pointer(_alloc_mem_ptr);
+    ch_container.assign_mem_pointer(_alloc_mem_ptr);
 }
 
 ustring::ustring(const char *str, heap_t *_alloc_mem_ptr){
-	this->alloc_mem_ptr = _alloc_mem_ptr;
-	ch_container.assign_mem_pointer(_alloc_mem_ptr);
+    ch_container.assign_mem_pointer(_alloc_mem_ptr);
 	assign(str);
 }
 
 ustring::ustring(const ustring &string){
-	this->alloc_mem_ptr = string.alloc_mem_ptr;
-	this->ch_container.assign_mem_pointer(alloc_mem_ptr);
-	resize(string.size());
-	clear();
+    this->assign_mem_pointer(string.get_mem_pointer());
 	for(uint32_t i = 0; i < string.size(); i++){
 		this->push_back(string.data()[i]);
 	}
 }
 
 ustring::ustring(){
-	alloc_mem_ptr = NULL;
+
 }
 
 ustring::~ustring(){
@@ -297,11 +290,8 @@ ustring::~ustring(){
 ustring& ustring::operator = (const ustring &string){
 	if(&string != this){
 		this->assign_mem_pointer(string.get_mem_pointer());
-		this->ch_container.resize(string.size());
-		this->ch_container.clear();
-		char *str_data_ptr = string.data();
-		for(uint32_t i = 0; i < string.size(); i++){
-			this->ch_container.push_back(str_data_ptr[i]);
+        for(uint32_t i = 0; i < string.size(); i++){
+            this->push_back(string.data()[i]);
 		}
 	}
 	return *this;

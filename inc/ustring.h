@@ -19,7 +19,7 @@
 
 #include "uvector.h"
 
-#define USTRING_VERSION			"1.1.0"
+#define USTRING_VERSION			"1.2.0"
 
 #define MIN_STRING_RESERVE		5
 
@@ -27,7 +27,6 @@ class ustring
 {
 private:
 	uvector<char> ch_container;
-	heap_t *alloc_mem_ptr;
 
 public:
 	ustring(uint32_t _size, heap_t *_alloc_mem_ptr);
