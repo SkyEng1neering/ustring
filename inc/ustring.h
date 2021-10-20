@@ -29,11 +29,18 @@ private:
 	uvector<char> ch_container;
 
 public:
-	ustring(uint32_t _size, heap_t *_alloc_mem_ptr);
-	ustring(heap_t *_alloc_mem_ptr);
-	ustring(const char *str, heap_t *_alloc_mem_ptr);
+    ustring();
+#ifdef USE_SINGLE_HEAP_MEMORY
+    ustring(uint32_t _size);
+    ustring(const char *str);
+#else
+    ustring(heap_t *_alloc_mem_ptr);
+    ustring(uint32_t _size, heap_t *_alloc_mem_ptr);
+    ustring(const char *str, heap_t *_alloc_mem_ptr);
+    void assign_mem_pointer(heap_t *mem_ptr);
+#endif
 	ustring(const ustring &string);
-	ustring();
+
 	~ustring();
 	ustring& operator = (const ustring &string);
 
@@ -69,7 +76,6 @@ public:
 	bool assign(ustring str);
 	bool assign(const char *str, uint32_t str_len);
 	heap_t* get_mem_pointer() const;
-	void assign_mem_pointer(heap_t *mem_ptr);
 };
 
 #endif // USTRING_H
