@@ -49,7 +49,7 @@ public:
 	char& front();
 	char& back();
 	char* data() const;
-	const char* c_str();
+	const char* c_str() const;
 	bool empty();
 	uint32_t size() const;
 	uint32_t length() const;
@@ -67,6 +67,10 @@ public:
 	bool operator+=(const char *str);
 	bool operator+=(ustring str);
 	bool operator+=(char ch);
+	bool operator==(const ustring & name) const;
+	bool operator==(ustring &str) const;
+	bool operator!=(const ustring & name) const;
+	bool operator!=(ustring &name) const;
 	bool resize(uint32_t new_str_size);
 	bool resize(uint32_t new_str_size, char value);
 	ustring operator + (ustring &str);

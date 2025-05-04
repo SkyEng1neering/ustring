@@ -36,7 +36,7 @@ char* ustring::data() const{
 	return ch_container.data();
 }
 
-const char* ustring::c_str(){
+const char* ustring::c_str() const{
 	return data();
 }
 
@@ -143,6 +143,34 @@ bool ustring::operator+=(ustring str){
 
 bool ustring::operator+=(char ch){
 	return append(ch);
+}
+
+bool ustring::operator==(const ustring &str) const {
+	if (size() != str.size()) {
+		return false;
+	}
+	if (strncmp(ch_container.data(), str.data(), str.size()) != 0) {
+		return false;
+	}
+	return true;
+}
+
+bool ustring::operator==(ustring &str) const {
+	if (size() != str.size()) {
+		return false;
+	}
+	if (strncmp(ch_container.data(), str.data(), str.size()) != 0) {
+		return false;
+	}
+	return true;
+}
+
+bool ustring::operator!=(const ustring &name) const {
+	return !(*this == name);
+}
+
+bool ustring::operator!=(ustring &name) const {
+	return !(*this == name);
 }
 
 bool ustring::resize(uint32_t new_str_size){
