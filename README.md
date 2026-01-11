@@ -1,135 +1,178 @@
-# About the project
-This is the magic implementation of dynamic string. Based on [dalloc](https://github.com/SkyEng1neering/dalloc) allocator, that solves memory fragmentation problem. So you can use it in your embedded project and not to be afraid of program crash by reason of memory fragmentation.
+# ustring
 
-You can use __ustring__ like string from STL, it supports all base methods of std::string.
+Dynamic string class for embedded systems using [dalloc](https://github.com/SkyEng1neering/dalloc) memory allocator.
 
-# Dependencies
-__ustring__ based on [uvector](https://github.com/SkyEng1neering/uvector) and [dalloc](https://github.com/SkyEng1neering/dalloc) allocator, so you should include it to your project.
+**Version:** 1.3.0
+**License:** Apache 2.0
+**Author:** Alexey Vasilenko
 
-# Usage
-## Using ustring with single heap area
-[dalloc](https://github.com/SkyEng1neering/dalloc) allocator is configurable, it can work with only one memory area that you define, or you can select which memory area should be used for each your allocation.
+## Features
 
-If you want to use in your project only one heap area, you should define "USE_SINGLE_HEAP_MEMORY" in file __dalloc_conf.h__. This is the simpliest way to use __ustring__ because it allows you to abstract away from working with memory.
+- Dynamic string with automatic memory management
+- Built on top of [uvector](https://github.com/SkyEng1neering/uvector)
+- Two modes: multi-heap (explicit heap pointer) and single-heap (global default)
+- STL-like interface (`at`, `c_str`, `append`, `resize`, `operator+`, etc.)
+- Memory defragmentation support via dalloc
+- No memory fragmentation issues for long-running embedded applications
 
-```c++
-/* File dalloc_conf.h */
-#define USE_SINGLE_HEAP_MEMORY
-#define SINGLE_HEAP_SIZE				4096UL //define heap size that you want to have
+## Dependencies
+
+ustring requires:
+- [uvector](https://github.com/SkyEng1neering/uvector) v1.3.0+
+- [dalloc](https://github.com/SkyEng1neering/dalloc) v1.5.0+
+
+## API Reference
+
+### Constructors
+
+| Constructor | Description |
+|-------------|-------------|
+| `ustring()` | Default constructor (single-heap mode only) |
+| `ustring(heap_t* heap)` | Constructor with heap pointer (multi-heap mode) |
+| `ustring(uint32_t size, heap_t* heap)` | Constructor with initial size |
+| `ustring(const char* str, heap_t* heap)` | Constructor from C string |
+| `ustring(const ustring& other)` | Copy constructor |
+
+### Element Access
+
+| Method | Description |
+|--------|-------------|
+| `char& at(uint32_t i)` | Access character with bounds checking |
+| `char& operator[](uint32_t i)` | Access character without bounds checking |
+| `char& front()` | Access first character |
+| `char& back()` | Access last character |
+| `char* data()` | Direct access to underlying array |
+| `const char* c_str()` | Get null-terminated C string |
+
+### Capacity
+
+| Method | Description |
+|--------|-------------|
+| `bool empty()` | Check if string is empty |
+| `uint32_t size()` | Return string length (excluding null terminator) |
+| `uint32_t length()` | Same as size() |
+| `uint32_t capacity()` | Return current capacity |
+| `bool reserve(uint32_t n)` | Reserve capacity for n characters |
+| `bool shrink_to_fit()` | Reduce capacity to match size |
+
+### Modifiers
+
+| Method | Description |
+|--------|-------------|
+| `bool push_back(char c)` | Append character |
+| `bool pop_back()` | Remove last character |
+| `bool append(const char* str)` | Append C string |
+| `bool append(const ustring& str)` | Append ustring |
+| `bool append(char c)` | Append character |
+| `void clear()` | Remove all characters |
+| `bool resize(uint32_t n)` | Change string size |
+| `bool resize(uint32_t n, char c)` | Change size with fill character |
+| `bool assign(const char* str)` | Replace content with C string |
+| `bool assign(const ustring& str)` | Replace content with ustring |
+
+### Operators
+
+| Operator | Description |
+|----------|-------------|
+| `operator=` | Assignment |
+| `operator+=` | Append |
+| `operator+` | Concatenation |
+| `operator==` | Equality comparison |
+| `operator!=` | Inequality comparison |
+
+## Usage
+
+### Single-heap mode
+
+Enable single-heap mode via compiler flags or custom config file:
+
+```bash
+gcc -DUSE_SINGLE_HEAP_MEMORY ...
 ```
 
-Then you should define uint8_t array in your code, that will be used for storing data. This array should be named "single_heap" and it should be have size SINGLE_HEAP_SIZE (defined in file __dalloc_conf.h__).
-
-```c++
+```cpp
 #include "ustring.h"
 
-uint8_t single_heap[SINGLE_HEAP_SIZE] = {0};
+__attribute__((aligned(4)))
+static uint8_t heap_buffer[4096];
+
+int main() {
+    if (!dalloc_register_heap(heap_buffer, sizeof(heap_buffer))) {
+        return -1;
+    }
+
+    ustring str1("Hello");
+    ustring str2(" World");
+    ustring result = str1 + str2;
+
+    printf("Result: %s\n", result.c_str());  // "Hello World"
+
+    return 0;
+}
 ```
 
-Why you should implement this array in your code by yourself? Because you may want to store this array for example in specific memory region, or you may want to apply to this array some attributes, like this:
+### Multi-heap mode
 
-```c++
-__attribute__((section(".ITCM_RAM"))) uint8_t single_heap[SINGLE_HEAP_SIZE] = {0};
-```
-or like this:
-
-```c++
-__ALIGN_BEGIN uint8_t single_heap[SINGLE_HEAP_SIZE] __ALIGN_END;
-```
-
-So for example that's how looks like example of using __ustring__ with single memory region on STM32 MCU:
-
-```c++
+```cpp
 #include "ustring.h"
 
-__ALIGN_BEGIN uint8_t single_heap[SINGLE_HEAP_SIZE] __ALIGN_END;
+__attribute__((aligned(4)))
+static uint8_t heap_buffer[4096];
+heap_t heap;
 
-void main(){
-  ustring string1("Hello ");
-  ustring string2("World!11");
-  
-  ustring string3 = string1 + string2;
+int main() {
+    heap_init(&heap, heap_buffer, sizeof(heap_buffer));
 
-  printf("String value is %s\n", string3.c_str());
- 
-  while(1){}
-}  
+    ustring str1("Hello", &heap);
+    ustring str2(" World", &heap);
+
+    str1 += str2;
+    printf("Result: %s\n", str1.c_str());  // "Hello World"
+
+    heap_deinit(&heap);
+    return 0;
+}
 ```
 
-By the way you can use __ustring__ also with [uvector](https://github.com/SkyEng1neering/uvector):
+### Using with uvector
 
-```c++
+```cpp
 #include "uvector.h"
 #include "ustring.h"
 
-__ALIGN_BEGIN uint8_t single_heap[SINGLE_HEAP_SIZE] __ALIGN_END;
+uvector<ustring> strings(&heap);
 
-void main(){
-  ustring string1("this is the string 1");
-  ustring string2("this is the string 2");
+strings.push_back(ustring("First", &heap));
+strings.push_back(ustring("Second", &heap));
 
-  uvector<ustring> vector_of_strings;
-  
-  vector_of_strings.push_back(string1);
-  vector_of_strings.push_back(string2);
- 
-  for(uint32_t i = 0; i < vector_of_strings.size(); i++){
-    printf("Vector element %lu: %s\n", i, vector_of_strings.at(i).c_str());
-  }
- 
-  while(1){}
-}  
-```
-Full info about supported methods of __ustring__ you can see in ___ustring.h___ file
-
-## Using ustring with different heap areas
-
-If you want to use several different heap areas, you can define it explicitly:
-
-```c++
-/* File dalloc_conf.h */
-//#define USE_SINGLE_HEAP_MEMORY //comment this define
+for (uint32_t i = 0; i < strings.size(); i++) {
+    printf("String %u: %s\n", i, strings.at(i).c_str());
+}
 ```
 
-```c++
-#include "ustring.h"
+## Testing
 
-#define HEAP_SIZE			1024
+ustring includes comprehensive unit tests using Google Test:
 
-/* Declare an arrays that will be used for dynamic memory allocations */
-__ALIGN_BEGIN uint8_t heap_array1[HEAP_SIZE] __ALIGN_END;
-__ALIGN_BEGIN uint8_t heap_array2[HEAP_SIZE] __ALIGN_END;
-
-/* Declare an dalloc heap structures, it will contains all allocations info */
-heap_t heap1;
-heap_t heap2;
-
-void main(){
-  /* Init heap memory */
-  heap_init(&heap1, (void*)heap_array1, HEAP_SIZE);
-  heap_init(&heap2, (void*)heap_array2, HEAP_SIZE);
-
-  ustring string1("String1", &heap1);
-  ustring string2("String2", &heap2);
-  
-  printf("String1 value is %s\n", string1.c_str());
-  printf("String2 value is %s\n", string2.c_str());
- 
-  while(1){}
-}  
-  
+```bash
+cd libs/ustring/tests
+mkdir build && cd build
+cmake ..
+make -j$(nproc)
+./ustring_tests              # Multi-heap tests (139 tests)
+./ustring_single_heap_tests  # Single-heap tests (28 tests)
 ```
-## P.S.
-In any time you can check what exactly is going on in your heap memory using functions:
-```c++
-/* If you use different heap areas in your project */
-void print_dalloc_info(heap_t *heap_struct_ptr);
-void dump_dalloc_ptr_info(heap_t* heap_struct_ptr);
-void dump_heap(heap_t* heap_struct_ptr);
-```
-```c++
-/* If you use single heap area in your project */
-void print_def_dalloc_info();
-void dump_def_dalloc_ptr_info();
-void dump_def_heap();
-```
+
+Tests cover:
+- Basic operations (construction, assignment, access)
+- String manipulation (append, resize, clear)
+- Operators (+, +=, ==, !=)
+- Copy semantics (copy constructor, assignment)
+- Edge cases (empty string, single character)
+- Stress tests (rapid operations, long strings)
+
+All tests run with AddressSanitizer and UndefinedBehaviorSanitizer enabled.
+
+## License
+
+Apache License 2.0. See [LICENSE](LICENSE) for details.

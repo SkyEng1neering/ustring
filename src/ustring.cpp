@@ -15,6 +15,7 @@
  */
 
 #include "ustring.h"
+#include <cstring>
 
 char& ustring::at(uint32_t i){
 	return ch_container.at(i);
@@ -29,7 +30,13 @@ char& ustring::front(){
 }
 
 char& ustring::back(){
-	return ch_container.back();
+	// Return the last character before null terminator
+	// ch_container stores: [char0, char1, ..., charN-1, '\0']
+	// So last character is at ch_container.size() - 2
+	if(ch_container.size() > 1){
+		return ch_container.at(ch_container.size() - 2);
+	}
+	return ch_container.back();  // Empty string case
 }
 
 char* ustring::data() const{
@@ -41,7 +48,8 @@ const char* ustring::c_str() const{
 }
 
 bool ustring::empty(){
-	return ch_container.empty();
+	// A string is empty if it has no characters (excluding null terminator)
+	return size() == 0;
 }
 
 uint32_t ustring::size() const{
@@ -105,7 +113,9 @@ bool ustring::append(const char *str){
 		return false;
 	}
 	while(str[ind] != '\0'){
-		push_back(str[ind]);
+		if(push_back(str[ind]) != true){
+			return false;
+		}
 		ind++;
 	}
 	return true;
@@ -124,8 +134,13 @@ bool ustring::append(const char *str, uint32_t str_len){
 	return append(const_cast<char*>(str), str_len);
 }
 
-bool ustring::append(ustring str){
+bool ustring::append(const ustring& str){
 	uint32_t str_len = str.size();
+	// Pre-reserve to avoid reallocation during push_back
+	// This prevents dalloc defragmentation from moving str's data
+	if(reserve(size() + str_len) != true){
+		return false;
+	}
 	return append(str.c_str(), str_len);
 }
 
@@ -137,7 +152,7 @@ bool ustring::operator+=(const char *str){
 	return append(str);
 }
 
-bool ustring::operator+=(ustring str){
+bool ustring::operator+=(const ustring& str){
 	return append(str);
 }
 
@@ -181,33 +196,31 @@ bool ustring::resize(uint32_t new_str_size, char value){
 	if(size() == new_str_size){
 		return true;
 	}
+
+	// Shrinking: remove characters from end
 	if(size() > new_str_size){
-		for(uint32_t i = 0; i < size() - new_str_size; i++){
+		// Calculate how many to remove BEFORE the loop (size() changes during pop_back)
+		uint32_t to_remove = size() - new_str_size;
+		for(uint32_t i = 0; i < to_remove; i++){
 			pop_back();
 		}
 		return true;
 	}
 
-	if(capacity() > new_str_size){
-		if(ch_container.resize(new_str_size + 1, value) != true){
+	// Growing: add characters
+	// Need new_str_size chars + null terminator = new_str_size + 1 elements
+	if(capacity() <= new_str_size){
+		if(reserve(new_str_size) != true){
 			return false;
 		}
-		ch_container.back() = '\0';
-		if(ch_container.pop_back() != true){
-			return false;
-		}
-		return true;
 	}
-	if(reserve(new_str_size) != true){
-		return false;
-	}
+
+	// Resize container to hold new_str_size chars + null terminator
 	if(ch_container.resize(new_str_size + 1, value) != true){
 		return false;
 	}
-	ch_container.back() = '\0';
-	if(ch_container.pop_back() != true){
-		return false;
-	}
+	// Set the null terminator at the end
+	ch_container.at(new_str_size) = '\0';
 
 	return true;
 }
@@ -241,7 +254,11 @@ bool ustring::assign(const char *str, uint32_t str_len){
 	return assign(const_cast<char*>(str), str_len);
 }
 
-bool ustring::assign(ustring str){
+bool ustring::assign(const ustring& str){
+	// Self-assignment check
+	if(this == &str){
+		return true;
+	}
 	uint32_t str_len = str.size();
 	ch_container.clear();
 	return assign(str.c_str(), str_len);
@@ -269,6 +286,7 @@ ustring::ustring(const ustring &string){
 
 ustring& ustring::operator = (const ustring &string){
     if(&string != this){
+        clear();  // Clear existing content before copying
         for(uint32_t i = 0; i < string.size(); i++){
             this->push_back(string.data()[i]);
         }
@@ -311,6 +329,8 @@ void ustring::assign_mem_pointer(heap_t *mem_ptr){
     ch_container.assign_mem_pointer(mem_ptr);
 }
 
+
+
 ustring::ustring(uint32_t _size, heap_t *_alloc_mem_ptr){
     ch_container.assign_mem_pointer(_alloc_mem_ptr);
     resize(_size);
@@ -335,6 +355,7 @@ ustring::ustring(const ustring &string){
 ustring& ustring::operator = (const ustring &string){
     if(&string != this){
         this->assign_mem_pointer(string.get_mem_pointer());
+        clear();  // Clear existing content before copying
         for(uint32_t i = 0; i < string.size(); i++){
             this->push_back(string.data()[i]);
         }
